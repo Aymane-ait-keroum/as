@@ -1,0 +1,2 @@
+Ce code crée une application de gestion de tâches avec interface Tkinter, permettant d’ajouter, supprimer, rechercher et filtrer les tâches (faites ou non) en les enregistrant dans un fichier JSON.
+Il utilise deux classes : TaskManager pour la logique des tâches, et TaskApp pour l’interface graphique.
