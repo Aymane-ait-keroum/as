@@ -1,111 +1,61 @@
 import tkinter as tk
-from tkinter import ttk, simpledialog
-import json
-import os
+from tkinter import messagebox
+import requests
 
-class TaskManager:
-    def __init__(self, filename="tasks.json"):
-        self.filename = filename
-        self.tasks = self.load_tasks()
+API_KEY = "6c7736986786bb4fcacabab9f8d84eef"
 
-    def load_tasks(self):
-        if os.path.exists(self.filename):
-            with open(self.filename, "r") as f:
-                return json.load(f)
-        return []
+def get_weather(city):
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        if data.get("cod") != 200:
+            return f"93ma l9ina had mdina: {data.get('message', '')}"
+        weather = data["weather"][0]["description"].capitalize()
+        temperature = data["main"]["temp"]
+        return f"Ta9ss f {city}: {weather}, {temperature}°C"
+    except requests.exceptions.RequestException as e:
+        return f"Erreur lors de la récupération : {e}"
 
-    def save_tasks(self):
-        with open(self.filename, "w") as f:
-            json.dump(self.tasks, f, indent=2)
+def ask_question():
+    city = city_entry.get().strip()
+    if not city:
+        messagebox.showwarning("Input Error", "Fin tatskon?")
+        return
 
-    def add_task(self, task):
-        self.tasks.append({"task": task, "done": False})
-        self.save_tasks()
+    answer = messagebox.askquestion("Question", f"Wach tatsken f {city}?")
+    if answer == 'yes':
+        result_label.config(text="Toul mn cherjam hhhh")
+    else:
+        weather_info = get_weather(city)
+        result_label.config(text=weather_info)
 
-    def remove_task(self, index):
-        if 0 <= index < len(self.tasks):
-            del self.tasks[index]
-            self.save_tasks()
+root = tk.Tk()
+root.title("⛅ Weather App Marocaine")
+root.geometry("420x280")
+root.configure(bg="#f0f8ff")
 
-    def toggle_task(self, index):
-        if 0 <= index < len(self.tasks):
-            self.tasks[index]["done"] = not self.tasks[index]["done"]
-            self.save_tasks()
+frame = tk.Frame(root, bg="#f0f8ff")
+frame.pack(pady=20)
 
-    def get_filtered_tasks(self, filter_by, search=""):
-        filtered = self.tasks
-        if filter_by == "Done":
-            filtered = [t for t in self.tasks if t["done"]]
-        elif filter_by == "Undone":
-            filtered = [t for t in self.tasks if not t["done"]]
-        if search:
-            filtered = [t for t in filtered if search.lower() in t["task"].lower()]
-        return filtered
+title_label = tk.Label(frame, text="⛅ Ta9ss Dial Lyoum", font=("Helvetica", 16, "bold"), bg="#f0f8ff", fg="#333")
+title_label.pack(pady=10)
 
-class TaskApp:
-    def __init__(self, root):
-        self.manager = TaskManager()
-        self.root = root
-        self.root.title("Gestionnaire de Tâches")
-        self.search_var = tk.StringVar()
-        self.filter_var = tk.StringVar(value="All")
-        self.setup_ui()
-        self.refresh_list()
+city_entry = tk.Entry(frame, width=30, font=("Helvetica", 12), justify='center')
+city_entry.pack(pady=5)
 
-    def setup_ui(self):
-        top = ttk.Frame(self.root)
-        top.pack(pady=10)
-        ttk.Label(top, text="Recherche :").grid(row=0, column=0)
-        ttk.Entry(top, textvariable=self.search_var).grid(row=0, column=1, padx=5)
-        self.search_var.trace_add("write", lambda *_: self.refresh_list())
+submit_button = tk.Button(frame, text="🔍 Vérifier", command=ask_question, font=("Helvetica", 11), bg="#4CAF50", fg="white", relief="raised", bd=3)
+submit_button.pack(pady=10)
 
-        ttk.OptionMenu(top, self.filter_var, "All", "All", "Done", "Undone", command=lambda _: self.refresh_list()).grid(row=0, column=2)
+result_label = tk.Label(
+    root,
+    text="",
+    font=("Helvetica", 12),
+    fg="#1e90ff",
+    bg="#f0f8ff",
+    wraplength=380,
+    justify="center"
+)
+result_label.pack(pady=10)
 
-        self.listbox = tk.Listbox(self.root, width=60, height=15)
-        self.listbox.pack(pady=10)
-
-        buttons = ttk.Frame(self.root)
-        buttons.pack()
-        ttk.Button(buttons, text="Ajouter", command=self.add_task).grid(row=0, column=0, padx=5)
-        ttk.Button(buttons, text="Supprimer", command=self.remove_task).grid(row=0, column=1, padx=5)
-        ttk.Button(buttons, text="Compléter", command=self.toggle_task).grid(row=0, column=2, padx=5)
-
-    def refresh_list(self):
-        self.listbox.delete(0, tk.END)
-        tasks = self.manager.get_filtered_tasks(self.filter_var.get(), self.search_var.get())
-        for task in tasks:
-            status = "[X]" if task["done"] else "[ ]"
-            self.listbox.insert(tk.END, f"{status} {task['task']}")
-
-    def add_task(self):
-        task = simpledialog.askstring("Nouvelle tâche", "Entrez une tâche :")
-        if task:
-            self.manager.add_task(task)
-            self.refresh_list()
-
-    def remove_task(self):
-        index = self.listbox.curselection()
-        if index:
-            actual_index = self.get_actual_index(index[0])
-            self.manager.remove_task(actual_index)
-            self.refresh_list()
-
-    def toggle_task(self):
-        index = self.listbox.curselection()
-        if index:
-            actual_index = self.get_actual_index(index[0])
-            self.manager.toggle_task(actual_index)
-            self.refresh_list()
-
-    def get_actual_index(self, visible_index):
-        filtered = self.manager.get_filtered_tasks(self.filter_var.get(), self.search_var.get())
-        visible_task = filtered[visible_index]
-        for i, t in enumerate(self.manager.tasks):
-            if t == visible_task:
-                return i
-        return -1
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    TaskApp(root)
-    root.mainloop()
+root.mainloop()
